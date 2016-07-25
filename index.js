@@ -6,10 +6,15 @@ const protocol = require('@tradle/protocol')
 // const TYPE = constants.TYPE
 
 module.exports = function (opts) {
+  const db = opts.db
+  if (db.options.valueEncoding !== 'json') {
+    throw new Error('expected db to have json encoding')
+  }
+
   const serverUrl = opts.url
   const key = opts.key
   const identity = opts.identity
-  const link = protocol.linkString(identity)
+  const publisher = protocol.linkString(identity)
   return {
     register: function (cb) {
       request.post(`${serverUrl}/publisher`)
@@ -38,14 +43,32 @@ module.exports = function (opts) {
         })
     },
     // silent notifications only
-    push: function (userLink, cb) {
-      request.post(`${serverUrl}/silent/${userLink}/${link}`)
-        .send(opts)
-        .end(function (err, res) {
-          if (err || !res.ok) return cb(err || new Error('push failed'))
+    push: function (subscriber, cb) {
+      db.get(subscriber, function (err, info) {
+        if (err) {
+          if (!err.notFound) return cb(err)
+        }
 
-          cb()
+        info = info || { seq: -1 }
+        const seq = ++info.seq
+        db.put(subscriber, info, function (err) {
+          if (err) console.log(err)
         })
+
+        const nonce = crypto.randomBytes(8).toString('base64')
+        key.sign(sha256(seq + nonce), function (err, sig) {
+          if (err) return cb(err)
+
+          const body = { publisher, subscriber, seq, nonce, sig }
+          request.post(`${serverUrl}/notification`)
+            .send(body)
+            .end(function (err, res) {
+              if (err || !res.ok) return cb(err || new Error('push failed'))
+
+              cb()
+            })
+        })
+      })
     }
   }
 }
