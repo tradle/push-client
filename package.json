@@ -14,7 +14,9 @@
   "dependencies": {
     "@tradle/protocol": "^2.0.0",
     "nkey-ec": "^1.0.0",
-    "superagent": "^2.1.0"
+    "subleveldown": "^2.1.0",
+    "superagent": "^2.1.0",
+    "thunky": "^1.0.1"
   },
   "devDependencies": {
     "level": "^1.4.0"
